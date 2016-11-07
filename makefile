@@ -12,8 +12,8 @@ m-slave: slave.hex
 master.hex: master.elf
 	avr-objcopy -R .eeprom -O ihex master.elf master.hex
 	
-master.elf: master.o usart.o spi-m328p.o
-	avr-gcc -mmcu=$(MASTER_MCU) master.o usart.o spi-m328p.o -o master.elf
+master.elf: master.o usart.o spi-m328p.o instruction.o
+	avr-gcc -mmcu=$(MASTER_MCU) master.o usart.o spi-m328p.o instruction.o -o master.elf
 
 master.o: master.c
 	avr-gcc -mmcu=$(MASTER_MCU) -Os -c master.c
@@ -43,6 +43,9 @@ spi-m16.o: $(LIBDIR)/spi.c
 	
 usart.o: $(LIBDIR)/usart.c
 	avr-gcc -mmcu=$(MASTER_MCU) -Os -c $(LIBDIR)/usart.c
+
+instruction.o: instruction.c
+	avr-gcc -mmcu=$(MASTER_MCU) -Os -c instruction.c
 # end utils build
 
 install-master:
@@ -50,4 +53,4 @@ install-master:
 install-slave:
 	avrdude -c usbasp -p $(SLAVE_MCU_AVRDUDE) -u -U flash:w:slave.hex
 clean:
-	rm -f master.hex master.elf master.o spi-m16.o spi-m328p.o usart.o slave.o slave.hex slave.elf
+	rm -f *.elf *.elf *.o client/*.exe

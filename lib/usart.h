@@ -10,5 +10,6 @@
 void USART_init(void);
 unsigned char USART_receive(void);
 void USART_send(uint8_t);
+void USART_send_array(uint8_t*, uint8_t);
 
 #endif
