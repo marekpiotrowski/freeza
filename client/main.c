@@ -1,53 +1,43 @@
-//
-// serial.c / serial.cpp
-// A simple serial port writing example
-// Written by Ted Burke - last updated 13-2-2013
-//
-// To compile with MinGW:
-//
-//      gcc -o serial.exe serial.c
-//
-// To compile with cl, the Microsoft compiler:
-//
-//      cl serial.cpp
-//
-// To run:
-//
-//      serial.exe
-//
- 
 #include <windows.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include "instruction_parser.h"
+
+#define EXIT "exit\n"
+#define MAX_SIZE 1024
+
+void set_com_full_name(int com_number, char * result) {
+	sprintf(result, "COM%d", com_number);
+}
  
 int main()
 {
-    // Define the five bytes to send ("hello")
-    char bytes_to_send[5];
-    bytes_to_send[0] = 'a';
-    bytes_to_send[1] = 'b';
-    bytes_to_send[2] = 'c';
-    bytes_to_send[3] = 'd';
-    bytes_to_send[4] = 'e';
- 
-    // Declare variables and structures
+	int com_port_number;
+	char com[10];
     HANDLE hSerial;
     DCB dcbSerialParams = {0};
     COMMTIMEOUTS timeouts = {0};
+	char bytes_to_send[100];
+	int size;
+	
+	printf("Specify COM port of the machine please: COM");
+	scanf("%d", &com_port_number);
+	
+	set_com_full_name(com_port_number, com);
          
-    // Open the highest available serial port number
-    fprintf(stderr, "Opening serial port...");
+    fprintf(stderr, "Opening %s...", com);
     hSerial = CreateFile(
-                "COM5", GENERIC_READ|GENERIC_WRITE, 0, NULL,
+                com, GENERIC_READ|GENERIC_WRITE, 0, NULL,
                 OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL );
+				
     if (hSerial == INVALID_HANDLE_VALUE)
     {
             fprintf(stderr, "Error\n");
             return 1;
     }
     else fprintf(stderr, "OK\n");
-     
-    // Set device parameters (38400 baud, 1 start bit,
-    // 1 stop bit, no parity)
+    
+
     dcbSerialParams.DCBlength = sizeof(dcbSerialParams);
     if (GetCommState(hSerial, &dcbSerialParams) == 0)
     {
@@ -60,6 +50,7 @@ int main()
     dcbSerialParams.ByteSize = 8;
     dcbSerialParams.StopBits = ONESTOPBIT;
     dcbSerialParams.Parity = NOPARITY;
+	
     if(SetCommState(hSerial, &dcbSerialParams) == 0)
     {
         fprintf(stderr, "Error setting device parameters\n");
@@ -73,6 +64,7 @@ int main()
     timeouts.ReadTotalTimeoutMultiplier = 10;
     timeouts.WriteTotalTimeoutConstant = 50;
     timeouts.WriteTotalTimeoutMultiplier = 10;
+	
     if(SetCommTimeouts(hSerial, &timeouts) == 0)
     {
         fprintf(stderr, "Error setting timeouts\n");
@@ -80,18 +72,13 @@ int main()
         return 1;
     }
  
-    // Send specified text (remaining command line arguments)
-    DWORD bytes_written, total_bytes_written = 0;
-    fprintf(stderr, "Sending bytes...");
-    if(!WriteFile(hSerial, bytes_to_send, 5, &bytes_written, NULL))
-    {
-        fprintf(stderr, "Error\n");
-        CloseHandle(hSerial);
-        return 1;
-    }   
-    fprintf(stderr, "%d bytes written\n", bytes_written);
-     
-    // Close serial port
+	fseek(stdin,0,SEEK_END);
+	while(strcmp(bytes_to_send, EXIT) != 0) {
+		printf(">");
+		fgets(bytes_to_send, MAX_SIZE, stdin);
+		send_instruction(bytes_to_send, hSerial);
+	}
+
     fprintf(stderr, "Closing serial port...");
     if (CloseHandle(hSerial) == 0)
     {
@@ -100,6 +87,5 @@ int main()
     }
     fprintf(stderr, "OK\n");
  
-    // exit normally
     return 0;
 }

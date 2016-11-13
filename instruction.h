@@ -2,6 +2,9 @@
 #define _INSTRUCTION_H
 
 #include "defs.h"
+
+#define F_CPU MASTER_F_CPU
+
 #include <util/delay.h> 
 
 #define READING 100
