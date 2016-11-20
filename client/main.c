@@ -81,7 +81,6 @@ int main()
 		printf(">");
 		fgets(bytes_to_send, MAX_SIZE, stdin);
 		short result = send_instruction(bytes_to_send, hSerial);
-		printf("%i", result);
 	}
 
     fprintf(stderr, "Closing serial port...");

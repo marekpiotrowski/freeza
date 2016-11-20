@@ -23,7 +23,6 @@ static int get_coordinate_from_instruction(char coordinate, char* raw_instructio
 	value[i] = '\0';
 	
 	result = atoi(value);
-	printf("%i", result);
 	return result;
 }
 
@@ -92,9 +91,9 @@ int send_instruction(char* raw_instruction, HANDLE hSerial) {
 	parse_instruction(raw_instruction, &instruction);
 	get_sendable_instruction(instruction, bytes_to_send);
 	
-	//bytes_to_send[12] = '\0';
-	//for(i = 0; i < 12; i++)
-	//	printf("%i\n", bytes_to_send[i]);
+	for(i = 0; i < 12; i++)
+		printf("%x ", bytes_to_send[i]);
+	printf("\n");
 	
 	if(!WriteFile(hSerial, bytes_to_send, INSTRUCTION_SIZE, &bytes_written, NULL))
 		return 2;
