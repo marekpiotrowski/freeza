@@ -13,6 +13,7 @@
 #define DATA_CHUNK_SIZE 5
 
 
+
 void move_forward(uint16_t delta, uint16_t time);
 void move_backward(uint16_t delta, uint16_t time);
 
@@ -23,18 +24,18 @@ int16_t current_coordinate;
 
 uint8_t buffer[DATA_CHUNK_SIZE];
 volatile uint8_t status = DATA_NOT_READY;
-volatile uint8_t i = 0;
+volatile uint8_t buffer_index = 0;
 
 ISR(SPI_STC_vect)
 {
 	uint8_t data = SPDR;
 	
 	if(status == DATA_NOT_READY) {
-				//	move_forward(0,0);
-		buffer[i] = data;
-		i++;
-		if(i == DATA_CHUNK_SIZE) {
+		buffer[buffer_index] = data;
+		buffer_index++;
+		if(buffer_index == DATA_CHUNK_SIZE) {
 			status = DATA_READY;
+			buffer_index = 0;
 		}
 	}
 }
@@ -50,7 +51,6 @@ int main()
     PORTD = 0x00;
 	
 	current_coordinate = 0;
-	i = 0;
 	
 	
     SPI_init_m16(); 
@@ -58,16 +58,12 @@ int main()
 	
     while(1) 
     { 
-					//move_forward(0,0);
-
 		if(status == DATA_READY) {
-			i = 0;
 			destination_coordinate = get_destination_from_data_frame();
 			time = get_time_from_data_frame();
 			
 			if(destination_coordinate > current_coordinate)
-			while(1)
-				move_backward(abs(destination_coordinate - current_coordinate), time);
+				move_forward(abs(destination_coordinate - current_coordinate), time);
 			else
 				move_backward(abs(destination_coordinate - current_coordinate), time);
 				
@@ -79,78 +75,35 @@ int main()
 }
 
 void move_forward(uint16_t delta, uint16_t time) {
-	//TO IMPLEMENT!
-	#ifdef DEBUG_MODE
-	//PORTD = delta;
-	//_delay_ms(2000);
-	#endif
-	
-	PORTD = 0b00001001;
-	#ifndef DEBUG_MODE
-	_delay_us(50);  //small delay between each step of 10ms
-	#else
-	_delay_ms(5);
-	#endif
+	while(1) { //TODO change condition to sth sensible - timer
+		PORTD = 0b00001001;
+		_delay_ms(5);
 
-	//2nd step
-	PORTD = 0b00000101;
-	#ifndef DEBUG_MODE
-	_delay_us(50);  //small delay between each step of 10ms
-	#else
-	_delay_ms(5);
-	#endif
-	
-	//3rd step
-	PORTD = 0b00000110;
-	#ifndef DEBUG_MODE
-	_delay_us(50);  //small delay between each step of 10ms
-	#else
-	_delay_ms(5);
-	#endif
-	
-	//4th step
-	PORTD = 0b00001010;
-	#ifndef DEBUG_MODE
-	_delay_us(50);  //small delay between each step of 10ms
-	#else
-	_delay_ms(5);
-	#endif
-	
-	//PORTD = 0;
+		PORTD = 0b00000101;
+		_delay_ms(5);
+		
+		PORTD = 0b00000110;
+		_delay_ms(5);
+		
+		PORTD = 0b00001010;
+		_delay_ms(5);
+	}
 }
+
 void move_backward(uint16_t delta, uint16_t time) {
-	//TO IMPLEMENT!
-	
-	//4th step
-	PORTD = 0b00001010;
-	#ifndef DEBUG_MODE
-	_delay_us(50);  //small delay between each step of 10ms
-	#else
-	_delay_ms(5);
-	#endif
-	
-	//3rd step
-	PORTD = 0b00000110;
-	#ifndef DEBUG_MODE
-	_delay_us(50);  //small delay between each step of 10ms
-	#else
-	_delay_ms(5);
-	#endif
-	
-	//2nd step
-	PORTD = 0b00000101;
-	#ifndef DEBUG_MODE
-	_delay_us(50);  //small delay between each step of 10ms
-	#else
-	_delay_ms(5);
-	#endif
-	
-	PORTD = 0b00001001;
-	#ifndef DEBUG_MODE
-	_delay_us(50);  //small delay between each step of 10ms
-	#else
-	_delay_ms(5);
-	#endif
+	while(1) { //TODO change condition to sth sensible - timer
+		PORTD = 0b00001010;
+		_delay_ms(5);
+		
+		PORTD = 0b00000110;
+		_delay_ms(5);
+		
+		PORTD = 0b00000101;
+		_delay_ms(5);
+		
+		PORTD = 0b00001001;
+		_delay_ms(5);
+	}
 }
 
 int16_t get_destination_from_data_frame() {
@@ -159,9 +112,9 @@ int16_t get_destination_from_data_frame() {
 	uint8_t higher_byte;
 	uint8_t greater_than_zero;
 	
-	lower_byte = buffer[0];
-	higher_byte = buffer[1];
-	greater_than_zero = buffer[2];
+	lower_byte = buffer[SPI_LOWER_BYTE_DESTINATION];
+	higher_byte = buffer[SPI_HIGHER_BYTE_DESTINATION];
+	greater_than_zero = buffer[SPI_SIGN_DESTINATION];
 	
 	result = (higher_byte << 8) | lower_byte;
 	
@@ -173,8 +126,8 @@ uint16_t get_time_from_data_frame() {
 	uint8_t lower_byte;
 	uint8_t higher_byte;
 	
-	lower_byte = buffer[2];
-	higher_byte = buffer[3];
+	lower_byte = buffer[SPI_LOWER_BYTE_TIME];
+	higher_byte = buffer[SPI_HIGHER_BYTE_TIME];
 	result = (higher_byte << 8) | lower_byte;
 	return result;
 }

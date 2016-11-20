@@ -26,6 +26,7 @@ int main()
 	set_com_full_name(com_port_number, com);
          
     fprintf(stderr, "Opening %s...", com);
+	
     hSerial = CreateFile(
                 com, GENERIC_READ|GENERIC_WRITE, 0, NULL,
                 OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL );
@@ -72,11 +73,15 @@ int main()
         return 1;
     }
  
+	printf("\n");
+	
 	fseek(stdin,0,SEEK_END);
+	
 	while(strcmp(bytes_to_send, EXIT) != 0) {
 		printf(">");
 		fgets(bytes_to_send, MAX_SIZE, stdin);
-		send_instruction(bytes_to_send, hSerial);
+		short result = send_instruction(bytes_to_send, hSerial);
+		printf("%i", result);
 	}
 
     fprintf(stderr, "Closing serial port...");

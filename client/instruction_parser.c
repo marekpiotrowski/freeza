@@ -1,19 +1,61 @@
 #include "instruction_parser.h"
 
+static int get_coordinate_from_instruction(char coordinate, char* raw_instruction) {
+	int result;
+	
+	char *coord = strchr(raw_instruction, coordinate);
+	
+	if(coord == NULL)
+		return UNDEFINED;
+		
+	int coordinate_index = (int)(coord - raw_instruction);
+	
+	char current_character = '\0';
+	char value[10];
+	int i = 0;
+
+	while(!isspace(raw_instruction[coordinate_index + 1 + i])) {
+		current_character = raw_instruction[coordinate_index + 1 + i];
+		value[i] = current_character;
+		i++;
+	}
+
+	value[i] = '\0';
+	
+	result = atoi(value);
+	printf("%i", result);
+	return result;
+}
 
 
+static void parse_g0_instruction(char* raw_instruction, InstructionFrame* instruction) {
+	int x, y, z;
 
-static int validate_instruction(char* raw_instruction) {
-	return TRUE; //TO IMPLEMENT
+	x = get_coordinate_from_instruction('X', raw_instruction);
+	y = get_coordinate_from_instruction('Y', raw_instruction);
+	z = get_coordinate_from_instruction('Z', raw_instruction);
+
+	instruction->x = x;
+	instruction->y = y;
+	instruction->z = z;
+	instruction->feed = 0;
+	instruction->code = G0;
+}
+
+static void parse_g_type_instruction(char* raw_instruction, InstructionFrame* instruction) {
+	switch(raw_instruction[1]) {
+		case '0': parse_g0_instruction(raw_instruction, instruction); break;
+	}
 }
 
 static void parse_instruction(char* raw_instruction, InstructionFrame* instruction) {
-	//TO IMPLEMENT
-	instruction->code = G0;
-	instruction->x = 5;
-	instruction->y = 0;
-	instruction->z = 0;
-	instruction->feed = 0;
+	switch(raw_instruction[0]) {
+		case 'G': parse_g_type_instruction(raw_instruction, instruction); break;
+	}
+}
+
+static int validate_instruction(char* raw_instruction) {
+	return TRUE; //TO IMPLEMENT
 }
 
 static void get_sendable_instruction(InstructionFrame instruction, unsigned char * buf) {
@@ -41,7 +83,7 @@ int send_instruction(char* raw_instruction, HANDLE hSerial) {
 	InstructionFrame instruction;
 	unsigned char bytes_to_send[INSTRUCTION_SIZE];
 	DWORD bytes_written;
-
+	int i;
 	is_instruction_valid = validate_instruction(raw_instruction);
 	
 	if(is_instruction_valid == FALSE)
@@ -49,6 +91,10 @@ int send_instruction(char* raw_instruction, HANDLE hSerial) {
 		
 	parse_instruction(raw_instruction, &instruction);
 	get_sendable_instruction(instruction, bytes_to_send);
+	
+	//bytes_to_send[12] = '\0';
+	//for(i = 0; i < 12; i++)
+	//	printf("%i\n", bytes_to_send[i]);
 	
 	if(!WriteFile(hSerial, bytes_to_send, INSTRUCTION_SIZE, &bytes_written, NULL))
 		return 2;

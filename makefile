@@ -53,4 +53,4 @@ install-master:
 install-slave:
 	avrdude -c usbasp -p $(SLAVE_MCU_AVRDUDE) -u -U flash:w:slave.hex
 clean:
-	rm -f *.elf *.elf *.o client/*.exe
+	rm -f *.elf *.elf *.o client/*.exe *.hex

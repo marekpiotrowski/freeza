@@ -18,5 +18,35 @@
 
 #define DEBUG_MODE
 
+#define MOTOR_X 1
+#define MOTOR_Y 2
+#define MOTOR_Z 4
+
+
+#define SPI_LOWER_BYTE_DESTINATION 0
+#define SPI_HIGHER_BYTE_DESTINATION 1
+#define SPI_SIGN_DESTINATION 2
+
+#define SPI_LOWER_BYTE_TIME 3
+#define SPI_HIGHER_BYTE_TIME 4
+
+#define USART_X_DESTINATION 2
+#define USART_Y_DESTINATION 5
+#define USART_Z_DESTINATION 8
+
+#define SPI_INSTRUCTION_BUFFER_SIZE 10
+#define USART_INSTRUCTION_BUFFER_SIZE 50
+
+#define UNDEFINED 20000
+
+
+typedef struct {
+	short code;
+	short x;
+	short y;
+	short z;
+	short feed;
+} InstructionFrame;
+
 
 #endif

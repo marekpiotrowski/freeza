@@ -1,9 +1,8 @@
 #include "instruction.h"
 
-#define INSTRUCTION_BUFFER_SIZE 50
 
 typedef struct {
-	uint8_t buffer[INSTRUCTION_BUFFER_SIZE];
+	uint8_t buffer[USART_INSTRUCTION_BUFFER_SIZE];
 	uint8_t iterator;
 	uint8_t status;
 } Instruction;
