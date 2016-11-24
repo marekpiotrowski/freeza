@@ -7,7 +7,7 @@ typedef struct {
 	uint8_t status;
 } Instruction;
 
-static Instruction instruction = { .iterator = 0, .status = IDLE };
+static Instruction instruction;
 
 
 uint8_t Instruction_write(uint8_t data) {

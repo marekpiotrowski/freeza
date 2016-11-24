@@ -41,15 +41,30 @@ static void parse_g0_instruction(char* raw_instruction, InstructionFrame* instru
 	instruction->code = G0;
 }
 
+static void parse_m0_instruction(InstructionFrame* instruction) {
+	instruction->x = 0;
+	instruction->y = 0;
+	instruction->z = 0;
+	instruction->feed = 0;
+	instruction->code = M0;
+}
+
 static void parse_g_type_instruction(char* raw_instruction, InstructionFrame* instruction) {
 	switch(raw_instruction[1]) {
 		case '0': parse_g0_instruction(raw_instruction, instruction); break;
 	}
 }
+static void parse_m_type_instruction(char* raw_instruction, InstructionFrame* instruction) {
+	switch(raw_instruction[1]) {
+		case '0': parse_m0_instruction(instruction); break;
+	}
+}
+
 
 static void parse_instruction(char* raw_instruction, InstructionFrame* instruction) {
 	switch(raw_instruction[0]) {
 		case 'G': parse_g_type_instruction(raw_instruction, instruction); break;
+		case 'M': parse_m_type_instruction(raw_instruction, instruction); break;
 	}
 }
 
@@ -97,7 +112,7 @@ int send_instruction(char* raw_instruction, HANDLE hSerial) {
 	
 	if(!WriteFile(hSerial, bytes_to_send, INSTRUCTION_SIZE, &bytes_written, NULL))
 		return 2;
-	
+
 	return 0;
 }
 

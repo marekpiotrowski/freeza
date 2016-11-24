@@ -23,6 +23,7 @@ int16_t get_coordinate_from_data_frame(char* buffer, uint8_t motor);
 
 void process_instruction(InstructionFrame instruction, Position* position);
 void process_G0_instruction(InstructionFrame instruction, Position* position);
+void process_M0_instruction();
 
 
 ISR(USART_RX_vect) {
@@ -43,11 +44,13 @@ int main()
     SPI_init_m328p(); 
 	sei();
 	
+	Instruction_set_idle();
+	
     while(1)               
     { 
 		switch(Instruction_get_status()) {
 			case READING_DONE:
-				Instruction_read(buffer);			
+				Instruction_read(buffer);
 				parse_usart_instruction(buffer, &instruction);				
 				process_instruction(instruction, &position);			
 				Instruction_set_idle();
@@ -59,12 +62,10 @@ int main()
 }
 
 void send_to_motor_driver(uint8_t motor, int16_t destination, uint16_t time) {
-	USART_send(motor);
-
 	switch_motor(motor);
-	
+
 	SPI_send(destination & LOWER_BYTE);
-	
+
 	SPI_send((destination & HIGHER_BYTE) >> 8);
 	
 	SPI_send(destination > 0 ? TRUE : FALSE);		
@@ -72,6 +73,25 @@ void send_to_motor_driver(uint8_t motor, int16_t destination, uint16_t time) {
 	SPI_send(time & LOWER_BYTE);
 
 	SPI_send((time & HIGHER_BYTE) >> 8);	
+}
+
+static void send_stop() {
+	SPI_send(STOP);
+	SPI_send(STOP);
+	SPI_send(STOP);
+	SPI_send(STOP);
+	SPI_send(STOP);
+}
+
+void send_stop_to_motor_drivers() {
+	switch_motor(MOTOR_X);
+	send_stop();
+
+	switch_motor(MOTOR_Y);
+	send_stop();
+
+	switch_motor(MOTOR_Z);
+	send_stop();
 }
 
 void switch_motor(uint8_t motor) {
@@ -82,13 +102,14 @@ void parse_usart_instruction(char* buffer, InstructionFrame* instruction) {
 	instruction->x = get_coordinate_from_data_frame(buffer, MOTOR_X);
 	instruction->y = get_coordinate_from_data_frame(buffer, MOTOR_Y);
 	instruction->z = get_coordinate_from_data_frame(buffer, MOTOR_Z);
-	instruction->code = buffer[1];
+	instruction->code = buffer[CODE_IDX];
 	instruction->feed = 0;
 }
 
 void process_instruction(InstructionFrame instruction, Position* position) {
 	switch(instruction.code) {
 		case G0: process_G0_instruction(instruction, position); break;
+		case M0: process_M0_instruction(); break;
 		case G1: break; //TODO
 	}
 }
@@ -105,7 +126,8 @@ int16_t get_coordinate_from_data_frame(char* buffer, uint8_t motor) {
 		case MOTOR_Y: offset = USART_Y_DESTINATION; break;
 		case MOTOR_Z: offset = USART_Z_DESTINATION; break;
 	}
-
+	//if(motor == MOTOR_X)
+	//	USART_send(buffer[offset]);
 	lower_byte = buffer[offset];
 	higher_byte = buffer[offset + 1];
 	greater_than_zero = buffer[offset + 2];
@@ -116,22 +138,16 @@ int16_t get_coordinate_from_data_frame(char* buffer, uint8_t motor) {
 }
 
 void process_G0_instruction(InstructionFrame instruction, Position* position) {
-	int16_t delta_x, delta_y, delta_z;
+	if(instruction.x != UNDEFINED)
+		send_to_motor_driver(MOTOR_X, instruction.x, 0);
+	
+	if(instruction.y != UNDEFINED)
+		send_to_motor_driver(MOTOR_Y, instruction.y, 0);
+	
+	if(instruction.z != UNDEFINED)
+		send_to_motor_driver(MOTOR_Z, instruction.z, 0);
+}
 
-	if(instruction.x != UNDEFINED) {
-		delta_x = instruction.x - position->x;
-		send_to_motor_driver(MOTOR_X, delta_x, 0);
-		position->x += delta_x;
-	}
-	if(instruction.y != UNDEFINED) {
-		delta_y = instruction.y - position->y;
-		send_to_motor_driver(MOTOR_Y, delta_y, 0);
-		position->y += delta_y;
-	}
-		
-	if(instruction.z != UNDEFINED) {
-		delta_z = instruction.z - position->z;
-		send_to_motor_driver(MOTOR_Z, delta_z, 0);
-		position->z += delta_z;
-	}
+void process_M0_instruction() {
+	send_stop_to_motor_drivers();
 }
