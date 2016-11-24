@@ -23,6 +23,7 @@ int16_t get_coordinate_from_data_frame(char* buffer, uint8_t motor);
 
 void process_instruction(InstructionFrame instruction, Position* position);
 void process_G0_instruction(InstructionFrame instruction, Position* position);
+void process_G1_instruction(InstructionFrame instruction, Position* position);
 void process_M0_instruction();
 
 
@@ -36,7 +37,7 @@ ISR(USART_RX_vect) {
 
 int main() 
 { 
-	uint8_t buffer[SPI_INSTRUCTION_BUFFER_SIZE];
+	uint8_t buffer[USART_INSTRUCTION_BUFFER_SIZE];
 	InstructionFrame instruction;
 	Position position;
 	
@@ -98,19 +99,33 @@ void switch_motor(uint8_t motor) {
 	PORTB = motor;
 }
 
+static short get_feed_from_data_frame(char* buffer) {
+	uint8_t lower_byte;
+	uint8_t higher_byte;
+	short result;
+	
+	lower_byte = buffer[FEED_LOWER_BYTE];
+	USART_send(lower_byte);
+	higher_byte = buffer[FEED_HIGHER_BYTE];
+	USART_send(higher_byte);
+	
+	result = (higher_byte << 8) | lower_byte;
+	return result;
+}
+
 void parse_usart_instruction(char* buffer, InstructionFrame* instruction) {
 	instruction->x = get_coordinate_from_data_frame(buffer, MOTOR_X);
 	instruction->y = get_coordinate_from_data_frame(buffer, MOTOR_Y);
 	instruction->z = get_coordinate_from_data_frame(buffer, MOTOR_Z);
 	instruction->code = buffer[CODE_IDX];
-	instruction->feed = 0;
+	instruction->feed = get_feed_from_data_frame(buffer);
 }
 
 void process_instruction(InstructionFrame instruction, Position* position) {
 	switch(instruction.code) {
 		case G0: process_G0_instruction(instruction, position); break;
 		case M0: process_M0_instruction(); break;
-		case G1: break; //TODO
+		case G1: process_G1_instruction(instruction, position); break; //TODO
 	}
 }
 
@@ -126,8 +141,7 @@ int16_t get_coordinate_from_data_frame(char* buffer, uint8_t motor) {
 		case MOTOR_Y: offset = USART_Y_DESTINATION; break;
 		case MOTOR_Z: offset = USART_Z_DESTINATION; break;
 	}
-	//if(motor == MOTOR_X)
-	//	USART_send(buffer[offset]);
+
 	lower_byte = buffer[offset];
 	higher_byte = buffer[offset + 1];
 	greater_than_zero = buffer[offset + 2];
@@ -147,7 +161,9 @@ void process_G0_instruction(InstructionFrame instruction, Position* position) {
 	if(instruction.z != UNDEFINED)
 		send_to_motor_driver(MOTOR_Z, instruction.z, 0);
 }
+void process_G1_instruction(InstructionFrame instruction, Position* position) {
 
+}
 void process_M0_instruction() {
 	send_stop_to_motor_drivers();
 }

@@ -26,6 +26,34 @@ static int get_coordinate_from_instruction(char coordinate, char* raw_instructio
 	return result;
 }
 
+static int get_feed_from_instruction(char coordinate, char* raw_instruction) {
+	int result;
+	double feed;
+	
+	char *coord = strchr(raw_instruction, coordinate);
+	
+	if(coord == NULL)
+		return UNDEFINED;
+		
+	int coordinate_index = (int)(coord - raw_instruction);
+	
+	char current_character = '\0';
+	char value[10];
+	int i = 0;
+
+	while(!isspace(raw_instruction[coordinate_index + 1 + i])) {
+		current_character = raw_instruction[coordinate_index + 1 + i];
+		value[i] = current_character;
+		i++;
+	}
+
+	value[i] = '\0';
+	
+	feed = atof(value);
+	result = feed * 1000; //um/s
+
+	return result;
+}
 
 static void parse_g0_instruction(char* raw_instruction, InstructionFrame* instruction) {
 	int x, y, z;
@@ -41,6 +69,22 @@ static void parse_g0_instruction(char* raw_instruction, InstructionFrame* instru
 	instruction->code = G0;
 }
 
+static void parse_g1_instruction(char* raw_instruction, InstructionFrame* instruction) {
+	int x, y, z;
+	int feed;
+
+	x = get_coordinate_from_instruction('X', raw_instruction);
+	y = get_coordinate_from_instruction('Y', raw_instruction);
+	z = get_coordinate_from_instruction('Z', raw_instruction);
+	feed = get_feed_from_instruction('F', raw_instruction); //um/s
+
+	instruction->x = x;
+	instruction->y = y;
+	instruction->z = z;
+	instruction->feed = feed;
+	instruction->code = G1;
+}
+
 static void parse_m0_instruction(InstructionFrame* instruction) {
 	instruction->x = 0;
 	instruction->y = 0;
@@ -52,6 +96,7 @@ static void parse_m0_instruction(InstructionFrame* instruction) {
 static void parse_g_type_instruction(char* raw_instruction, InstructionFrame* instruction) {
 	switch(raw_instruction[1]) {
 		case '0': parse_g0_instruction(raw_instruction, instruction); break;
+		case '1': parse_g1_instruction(raw_instruction, instruction); break;
 	}
 }
 static void parse_m_type_instruction(char* raw_instruction, InstructionFrame* instruction) {
@@ -89,7 +134,10 @@ static void get_sendable_instruction(InstructionFrame instruction, unsigned char
 	buf[9] = (instruction.z & HIGHER_BYTE) >> 8;
 	buf[10] = instruction.z > 0 ? TRUE : FALSE;
 	
-	buf[11] = ']';
+	buf[11] = instruction.feed & LOWER_BYTE;
+	buf[12] = (instruction.feed & HIGHER_BYTE) >> 8;
+	
+	buf[13] = ']';
 }
 
 int send_instruction(char* raw_instruction, HANDLE hSerial) {
@@ -106,7 +154,7 @@ int send_instruction(char* raw_instruction, HANDLE hSerial) {
 	parse_instruction(raw_instruction, &instruction);
 	get_sendable_instruction(instruction, bytes_to_send);
 	
-	for(i = 0; i < 12; i++)
+	for(i = 0; i < 14; i++)
 		printf("%x ", bytes_to_send[i]);
 	printf("\n");
 	

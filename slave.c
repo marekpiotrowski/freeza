@@ -14,8 +14,8 @@
 
 #define STD_DELAY 500
 
-void move_forward(uint16_t delta, uint16_t time);
-void move_backward(uint16_t delta, uint16_t time);
+void move_forward(uint16_t number_of_steps, uint16_t delta, uint16_t time);
+void move_backward(uint16_t number_of_steps, uint16_t delta, uint16_t time);
 
 int16_t get_destination_from_data_frame(); 
 uint16_t get_time_from_data_frame();
@@ -53,18 +53,13 @@ ISR(SPI_STC_vect)
 	}
 }
 
-
-void timer0_init()
-{
-    TCCR0 |= (1 << CS02)|(1 << CS00);
-  
-    TIMSK |= (1 << TOIE0);
-}
-
 int main() 
 { 
 	int16_t destination_coordinate;
-	uint16_t time;
+	uint32_t delta;
+	uint16_t time_us;
+	uint32_t time_per_step_us;
+	uint16_t number_of_steps;
 	uint8_t j;
 	
     DDRD = 0xFF; 
@@ -75,9 +70,6 @@ int main()
 	
     SPI_init_m16(); 
 	sei();
-	
-	TCNT0 = 0;
-    total_overflows = 0;
 
     while(1) 
     { 
@@ -85,15 +77,20 @@ int main()
 			status = DATA_NOT_READY;
 
 			destination_coordinate = get_destination_from_data_frame();
-			time = get_time_from_data_frame();
-
+			time_us = get_time_from_data_frame() * 1000;		
+			delta = abs(destination_coordinate - current_coordinate);
+			number_of_steps = ((delta * 1000) + error) / DISPLACEMENT_PER_STEP;
+			time_per_step_us = time_us / number_of_steps;
+			if(time_per_step_us == 0)
+				time_per_step_us = MIN_TIME_PER_STEP;
+			
 			if(destination_coordinate > current_coordinate) {
 				motor_status = MOTOR_RUNNING_FORWARD;
-				move_forward(abs(destination_coordinate - current_coordinate), time);
+				move_forward(number_of_steps, delta, time_per_step_us / 4);
 			}
 			else {
 				motor_status = MOTOR_RUNNING_BACKWARD;	
-				move_backward(abs(destination_coordinate - current_coordinate), time);
+				move_backward(number_of_steps, delta, time_per_step_us / 4);
 			}	
 		}
     }
@@ -106,53 +103,55 @@ void stop_motors() {
 	motor_status = MOTOR_STOPPED;
 }
 
-void move_forward(uint16_t delta, uint16_t time) {
-	uint32_t delta_um = delta * 1000;
-	delta_um += error;
+void move_forward(uint16_t number_of_steps, uint16_t delta, uint16_t time) {
 	uint32_t delta_um_normalized;
-
-	delta_um_normalized = (uint32_t)((delta_um / DISPLACEMENT_PER_STEP) + 0.5f) * DISPLACEMENT_PER_STEP;
-	error += delta_um - delta_um_normalized;
+	delta_um_normalized = number_of_steps * DISPLACEMENT_PER_STEP;
 	
-	while(motor_status != MOTOR_STOPPED && delta_um_normalized > 0) {
+	error += (delta * 1000) - delta_um_normalized;
+	
+	time *= PRESCALER;
+	
+	while(motor_status != MOTOR_STOPPED && number_of_steps > 0) {
 		PORTD = 0b00001001;
-		_delay_ms(STD_DELAY);
+		_delay_us(time);
 
 		PORTD = 0b00000101;
-		_delay_ms(STD_DELAY);
+		_delay_us(time);
 		
 		PORTD = 0b00000110;
-		_delay_ms(STD_DELAY);
+		_delay_us(time);
 		
 		PORTD = 0b00001010;
-		_delay_ms(STD_DELAY);
-		delta_um_normalized -= DISPLACEMENT_PER_STEP;
+		_delay_us(time);
+		
+		number_of_steps--;
 	}
 	stop_motors();
 }
 
-void move_backward(uint16_t delta, uint16_t time) {
-	uint32_t delta_um = delta * 1000;
-	delta_um += error;
+void move_backward(uint16_t number_of_steps, uint16_t delta, uint16_t time) {
 	uint32_t delta_um_normalized;
+	delta_um_normalized = number_of_steps * DISPLACEMENT_PER_STEP;
 	
-	delta_um_normalized = (uint32_t)((delta_um / DISPLACEMENT_PER_STEP) + 0.5f) * DISPLACEMENT_PER_STEP;
-	error += delta_um - delta_um_normalized;
+	error += (delta * 1000) - delta_um_normalized;
+	
+	time *= PRESCALER;
 
-	while(motor_status != MOTOR_STOPPED && delta_um_normalized > 0) {
+
+	while(motor_status != MOTOR_STOPPED && number_of_steps > 0) {
 		PORTD = 0b00001010;
-		_delay_ms(STD_DELAY);
+		_delay_us(time);
 		
 		PORTD = 0b00000110;
-		_delay_ms(STD_DELAY);
+		_delay_us(time);
 		
 		PORTD = 0b00000101;
-		_delay_ms(STD_DELAY);
+		_delay_us(time);
 		
 		PORTD = 0b00001001;
-		_delay_ms(STD_DELAY);
+		_delay_us(time);
 		
-		delta_um_normalized -= DISPLACEMENT_PER_STEP;
+		number_of_steps--;
 	}
 	stop_motors();
 }
