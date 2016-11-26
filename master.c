@@ -40,6 +40,7 @@ int main()
 	uint8_t buffer[USART_INSTRUCTION_BUFFER_SIZE];
 	InstructionFrame instruction;
 	Position position;
+	uint8_t status;
 	
 	USART_init();
     SPI_init_m328p(); 
@@ -57,6 +58,20 @@ int main()
 				Instruction_set_idle();
 				break;
 		}
+		
+		status = SPI_send(STATUS_CHECK);
+		if(status == 'X') {
+			USART_send(status);
+			_delay_ms(10);
+			status = SPI_send(STATUS_CHECK);
+			USART_send(status);
+			_delay_ms(10);
+			status = SPI_send(STATUS_CHECK);
+			USART_send(status);
+			_delay_ms(10);
+		}
+		
+		_delay_ms(100);
     } 
 	
     return 0; 
@@ -64,12 +79,12 @@ int main()
 
 void send_to_motor_driver(uint8_t motor, int16_t destination, uint16_t time) {
 	switch_motor(motor);
+	
+	SPI_send(destination > 0 ? TRUE : FALSE);		
 
 	SPI_send(destination & LOWER_BYTE);
 
 	SPI_send((destination & HIGHER_BYTE) >> 8);
-	
-	SPI_send(destination > 0 ? TRUE : FALSE);		
 	
 	SPI_send(time & LOWER_BYTE);
 
@@ -152,8 +167,9 @@ int16_t get_coordinate_from_data_frame(char* buffer, uint8_t motor) {
 }
 
 void process_G0_instruction(InstructionFrame instruction, Position* position) {
-	if(instruction.x != UNDEFINED)
+	if(instruction.x != UNDEFINED) {
 		send_to_motor_driver(MOTOR_X, instruction.x, 0);
+	}
 	
 	if(instruction.y != UNDEFINED)
 		send_to_motor_driver(MOTOR_Y, instruction.y, 0);

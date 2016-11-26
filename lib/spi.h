@@ -6,6 +6,6 @@
 
 void SPI_init_m328p(void);
 void SPI_init_m16(void);
-void SPI_send(uint8_t);
+uint8_t SPI_send(uint8_t);
 
 #endif
