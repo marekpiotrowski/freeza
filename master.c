@@ -7,6 +7,7 @@
 #include <util/delay.h> 
 #include <avr/interrupt.h>
 #include "instruction.h"
+#include "math.h"
 
 typedef struct {
 	int16_t x;
@@ -80,8 +81,6 @@ int main()
 void send_to_motor_driver(uint8_t motor, int16_t destination, uint16_t time) {
 	switch_motor(motor);
 	
-	SPI_send(destination > 0 ? TRUE : FALSE);		
-
 	SPI_send(destination & LOWER_BYTE);
 
 	SPI_send((destination & HIGHER_BYTE) >> 8);
@@ -92,7 +91,6 @@ void send_to_motor_driver(uint8_t motor, int16_t destination, uint16_t time) {
 }
 
 static void send_stop() {
-	SPI_send(STOP);
 	SPI_send(STOP);
 	SPI_send(STOP);
 	SPI_send(STOP);
@@ -120,9 +118,7 @@ static short get_feed_from_data_frame(char* buffer) {
 	short result;
 	
 	lower_byte = buffer[FEED_LOWER_BYTE];
-	USART_send(lower_byte);
 	higher_byte = buffer[FEED_HIGHER_BYTE];
-	USART_send(higher_byte);
 	
 	result = (higher_byte << 8) | lower_byte;
 	return result;
@@ -178,7 +174,22 @@ void process_G0_instruction(InstructionFrame instruction, Position* position) {
 		send_to_motor_driver(MOTOR_Z, instruction.z, 0);
 }
 void process_G1_instruction(InstructionFrame instruction, Position* position) {
-
+	int16_t vx = 0, vy = 0, vz = 0, delta_x, delta_y, delta_z, t_ms;
+	float t;
+	if(instruction.x != UNDEFINED && instruction.y != UNDEFINED &&
+			instruction.z != UNDEFINED) {
+		
+	}
+	else if(instruction.x != UNDEFINED && instruction.y != UNDEFINED) {
+		delta_x = abs(instruction.x - position->x);
+		delta_y = abs(instruction.y - position->y);
+		t = sqrt((delta_x * delta_x) + (delta_y * delta_y)) * 1000 / instruction.feed;
+		t_ms = t * 1000;
+		send_to_motor_driver(MOTOR_X, instruction.x, t_ms);
+		//send_to_motor_driver(MOTOR_Y, instruction.y, t_ms);
+		USART_send(t_ms & LOWER_BYTE);
+		USART_send((t_ms & HIGHER_BYTE) >> 8);
+	}
 }
 void process_M0_instruction() {
 	send_stop_to_motor_drivers();

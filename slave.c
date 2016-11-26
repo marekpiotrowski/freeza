@@ -10,12 +10,12 @@
 
 #define DATA_NOT_READY 0
 #define DATA_READY 1
-#define DATA_CHUNK_SIZE 5
+#define DATA_CHUNK_SIZE 4
 
 #define STD_DELAY 500
 
-void move_forward(uint16_t number_of_steps, uint16_t delta, uint16_t time);
-void move_backward(uint16_t number_of_steps, uint16_t delta, uint16_t time);
+void move_forward(uint16_t number_of_steps, uint16_t delta, uint32_t time);
+void move_backward(uint16_t number_of_steps, uint16_t delta, uint32_t time);
 
 int16_t get_destination_from_data_frame(); 
 uint16_t get_time_from_data_frame();
@@ -25,7 +25,7 @@ void stop_motors();
 volatile int16_t current_coordinate;
 int16_t error;
 
-uint8_t buffer[DATA_CHUNK_SIZE];
+volatile uint8_t buffer[DATA_CHUNK_SIZE];
 volatile uint8_t status = DATA_NOT_READY;
 volatile uint8_t buffer_index = 0;
 
@@ -47,8 +47,7 @@ ISR(SPI_STC_vect)
 		buffer[buffer_index] = data;
 		buffer_index++;
 		if(buffer_index == DATA_CHUNK_SIZE) {
-			if(buffer[0] == STOP && buffer[1] == STOP && buffer[2] == STOP && buffer[3] == STOP
-				&& buffer[4] == STOP) {
+			if(buffer[0] == STOP && buffer[1] == STOP && buffer[2] == STOP && buffer[3] == STOP) {
 				motor_status = MOTOR_STOPPED;
 				status = DATA_NOT_READY;
 			}
@@ -64,8 +63,9 @@ int main()
 { 
 	int16_t destination_coordinate;
 	uint32_t delta;
+	uint16_t time;
 	uint32_t time_us;
-	uint32_t time_per_step_us;
+	uint32_t time_per_step_us = 0;
 	uint16_t number_of_steps;
 	uint8_t j;
 	should_send_ack = 3;
@@ -81,26 +81,32 @@ int main()
 
     while(1) 
     { 
-		if(status == DATA_READY) {
-			status = DATA_NOT_READY;
-			
+		if(status == DATA_READY) {		
 			destination_coordinate = get_destination_from_data_frame();
-			time_us = get_time_from_data_frame() * 1000;		
+
+			time = get_time_from_data_frame();		
+			time_us = (uint32_t)time * 1000;
 			delta = abs(destination_coordinate - current_coordinate);
-			number_of_steps = round(((delta * 1000) + error) / DISPLACEMENT_PER_STEP);
-			time_per_step_us = time_us / number_of_steps;
-			
-			if(time_per_step_us == 0)
-				time_per_step_us = MIN_TIME_PER_STEP;
-			
-			if(destination_coordinate > current_coordinate) {
-				motor_status = MOTOR_RUNNING_FORWARD;
-				move_forward(number_of_steps, delta, time_per_step_us / 4);
+			if(delta != 0) {
+				number_of_steps = round(((delta * 1000) + error) / DISPLACEMENT_PER_STEP);
+				time_per_step_us = (uint32_t)round(time_us / (float)number_of_steps);
+
+				
+				
+				if(time_per_step_us == 0)
+					time_per_step_us = MIN_TIME_PER_STEP;
+				
+				if(destination_coordinate > current_coordinate) {
+					motor_status = MOTOR_RUNNING_FORWARD;
+					move_forward(number_of_steps, delta, time_per_step_us / 4);
+				}
+				else {
+					motor_status = MOTOR_RUNNING_BACKWARD;	
+					move_backward(number_of_steps, delta, time_per_step_us / 4);
+				}
+				
 			}
-			else {
-				motor_status = MOTOR_RUNNING_BACKWARD;	
-				move_backward(number_of_steps, delta, time_per_step_us / 4);
-			}
+			status = DATA_NOT_READY;
 			should_send_ack	= 0;
 		}
     }
@@ -113,7 +119,7 @@ void stop_motors() {
 	motor_status = MOTOR_STOPPED;
 }
 
-void move_forward(uint16_t number_of_steps, uint16_t delta, uint16_t time) {
+void move_forward(uint16_t number_of_steps, uint16_t delta, uint32_t time) {
 	uint32_t delta_um_normalized;
 	delta_um_normalized = number_of_steps * DISPLACEMENT_PER_STEP;
 	
@@ -140,12 +146,12 @@ void move_forward(uint16_t number_of_steps, uint16_t delta, uint16_t time) {
 	stop_motors();
 }
 
-void move_backward(uint16_t number_of_steps, uint16_t delta, uint16_t time) {
+void move_backward(uint16_t number_of_steps, uint16_t delta, uint32_t time) {
 	uint32_t delta_um_normalized;
 	delta_um_normalized = number_of_steps * DISPLACEMENT_PER_STEP;
 	
 	//error += (delta * 1000) - delta_um_normalized;
-
+	current_coordinate -= round((number_of_steps * DISPLACEMENT_PER_STEP) / 1000.0f);	
 
 	while(motor_status != MOTOR_STOPPED && number_of_steps > 0) {
 		PORTD = 0b00001010;
@@ -163,25 +169,23 @@ void move_backward(uint16_t number_of_steps, uint16_t delta, uint16_t time) {
 		number_of_steps--;
 	}
 		
-	//current_coordinate -= number_of_steps * DISPLACEMENT_PER_STEP;	
+	//	
 		
 	stop_motors();
 }
 
 int16_t get_destination_from_data_frame() {
 	int16_t result = 0;
-	uint8_t lower_byte;
-	uint8_t higher_byte;
-	uint8_t greater_than_zero;
+	uint8_t lb;
+	uint8_t hb;
 	
-	lower_byte = buffer[SPI_LOWER_BYTE_DESTINATION];
-	higher_byte = buffer[SPI_HIGHER_BYTE_DESTINATION];
-	greater_than_zero = buffer[SPI_SIGN_DESTINATION];
-	
-	result = (higher_byte << 8) | lower_byte;
+	lb = buffer[SPI_LOWER_BYTE_DESTINATION];
+	hb = buffer[SPI_HIGHER_BYTE_DESTINATION];
+
+	result = (int16_t)(hb << 8) | (int16_t)lb;
 	
 	
-	return greater_than_zero == TRUE ? result : -result;
+	return result;
 }
 
 uint16_t get_time_from_data_frame() {
@@ -191,6 +195,7 @@ uint16_t get_time_from_data_frame() {
 	
 	lower_byte = buffer[SPI_LOWER_BYTE_TIME];
 	higher_byte = buffer[SPI_HIGHER_BYTE_TIME];
-	result = (higher_byte << 8) | lower_byte;
+	result = (uint16_t)(higher_byte << 8) | (uint16_t)lower_byte;
+	
 	return result;
 }
