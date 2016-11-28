@@ -9,6 +9,8 @@
 #define G2 3
 #define M1 4
 #define M0 5
+#define M3 6
+#define M5 7
 
 
 #define TRUE 1
@@ -53,7 +55,7 @@
 #define DISPLACEMENT_PER_STEP 15.0f
 
 #define PRESCALER 100
-#define MIN_TIME_PER_STEP 20000
+#define MIN_TIME_PER_STEP 10000
 
 #define STATUS_CHECK 200
 

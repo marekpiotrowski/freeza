@@ -9,7 +9,7 @@
 
 #include "../defs.h"
 
-#define INSTRUCTION_SIZE 12
+#define INSTRUCTION_SIZE 14
 
 
 int send_instruction(char*, HANDLE);

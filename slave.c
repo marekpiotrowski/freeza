@@ -10,6 +10,7 @@
 
 #define DATA_NOT_READY 0
 #define DATA_READY 1
+#define EXECUTING 2
 #define DATA_CHUNK_SIZE 4
 
 #define STD_DELAY 500
@@ -39,7 +40,7 @@ ISR(SPI_STC_vect)
 	uint8_t data = SPDR;
 	uint8_t i;
 	if(data == STATUS_CHECK && should_send_ack < 3) {
-		if(should_send_ack == 0) { SPI_send('X'); should_send_ack++; }
+		if(should_send_ack == 0) { SPI_send('Y'); should_send_ack++; }
 		if(should_send_ack == 1) { SPI_send(current_coordinate & LOWER_BYTE); should_send_ack++; }
 		if(should_send_ack == 2) { SPI_send((current_coordinate & HIGHER_BYTE) >> 8); should_send_ack++; }
 	}
@@ -47,15 +48,14 @@ ISR(SPI_STC_vect)
 		buffer[buffer_index] = data;
 		buffer_index++;
 		if(buffer_index == DATA_CHUNK_SIZE) {
-			if(buffer[0] == STOP && buffer[1] == STOP && buffer[2] == STOP && buffer[3] == STOP) {
-				motor_status = MOTOR_STOPPED;
-				status = DATA_NOT_READY;
-			}
-			else {
-				status = DATA_READY;
-			}
+			status = DATA_READY;
 			buffer_index = 0;
 		}
+	}
+	else if(status == EXECUTING && data == STOP) {
+		motor_status = MOTOR_STOPPED;
+		status = DATA_NOT_READY;
+		buffer_index = 0;
 	}
 }
 
@@ -70,7 +70,7 @@ int main()
 	uint8_t j;
 	should_send_ack = 3;
 	
-    DDRD = 0xFF; 
+    DDRD = 0xFF;
     PORTD = 0xFF;
 	
 	current_coordinate = 0;
@@ -81,7 +81,8 @@ int main()
 
     while(1) 
     { 
-		if(status == DATA_READY) {		
+		if(status == DATA_READY) {
+			status = EXECUTING; 
 			destination_coordinate = get_destination_from_data_frame();
 
 			time = get_time_from_data_frame();		

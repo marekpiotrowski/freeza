@@ -8,7 +8,8 @@ void SPI_init_m328p()
 
 void SPI_init_m16() 
 { 
-    DDRB = ( 1 << PB6 );        //MISO as output  
+    DDRB = ( 1 << PB6 );        //MISO as output
+	DDRB = DDRB & 0b11101111; //SS as input
     SPCR = ( 1 << SPE ) | (1 << SPIE) | ( 1 << SPR1 ) | ( 1 << SPR0 );
 }  
 

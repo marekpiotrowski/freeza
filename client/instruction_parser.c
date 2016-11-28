@@ -93,6 +93,22 @@ static void parse_m0_instruction(InstructionFrame* instruction) {
 	instruction->code = M0;
 }
 
+static void parse_m3_instruction(InstructionFrame* instruction) {
+	instruction->x = 0;
+	instruction->y = 0;
+	instruction->z = 0;
+	instruction->feed = 0;
+	instruction->code = M3;
+}
+
+static void parse_m5_instruction(InstructionFrame* instruction) {
+	instruction->x = 0;
+	instruction->y = 0;
+	instruction->z = 0;
+	instruction->feed = 0;
+	instruction->code = M5;
+}
+
 static void parse_g_type_instruction(char* raw_instruction, InstructionFrame* instruction) {
 	switch(raw_instruction[1]) {
 		case '0': parse_g0_instruction(raw_instruction, instruction); break;
@@ -102,6 +118,8 @@ static void parse_g_type_instruction(char* raw_instruction, InstructionFrame* in
 static void parse_m_type_instruction(char* raw_instruction, InstructionFrame* instruction) {
 	switch(raw_instruction[1]) {
 		case '0': parse_m0_instruction(instruction); break;
+		case '3': parse_m3_instruction(instruction); break;
+		case '5': parse_m5_instruction(instruction); break;
 	}
 }
 
@@ -124,15 +142,15 @@ static void get_sendable_instruction(InstructionFrame instruction, unsigned char
 	
 	buf[2] = instruction.x & LOWER_BYTE;
 	buf[3] = (instruction.x & HIGHER_BYTE) >> 8;
-	buf[4] = instruction.x > 0 ? TRUE : FALSE;
+	buf[4] = TRUE;
 	
 	buf[5] = instruction.y & LOWER_BYTE;
 	buf[6] = (instruction.y & HIGHER_BYTE) >> 8;
-	buf[7] = instruction.y > 0 ? TRUE : FALSE;
+	buf[7] = TRUE;
 	
 	buf[8] = instruction.z & LOWER_BYTE;
 	buf[9] = (instruction.z & HIGHER_BYTE) >> 8;
-	buf[10] = instruction.z > 0 ? TRUE : FALSE;
+	buf[10] = TRUE;
 	
 	buf[11] = instruction.feed & LOWER_BYTE;
 	buf[12] = (instruction.feed & HIGHER_BYTE) >> 8;
@@ -154,9 +172,9 @@ int send_instruction(char* raw_instruction, HANDLE hSerial) {
 	parse_instruction(raw_instruction, &instruction);
 	get_sendable_instruction(instruction, bytes_to_send);
 	
-	for(i = 0; i < 14; i++)
-		printf("%x ", bytes_to_send[i]);
-	printf("\n");
+	//for(i = 0; i < 14; i++)
+	//	printf("%x ", bytes_to_send[i]);
+	//printf("\n");
 	
 	if(!WriteFile(hSerial, bytes_to_send, INSTRUCTION_SIZE, &bytes_written, NULL))
 		return 2;
